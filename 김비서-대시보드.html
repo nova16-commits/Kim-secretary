@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>김비서 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #818cf8, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header .date {
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3348;
+      border-radius: 16px;
+      padding: 22px;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+
+    /* 할 일 */
+    .todo-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .todo-input-row input {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .todo-input-row input:focus { border-color: #818cf8; }
+
+    .todo-input-row select {
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .btn-add {
+      background: #818cf8;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-add:hover { background: #6366f1; }
+
+    .todo-list { list-style: none; }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #2d3348;
+    }
+
+    .todo-item:last-child { border-bottom: none; }
+
+    .todo-item input[type=checkbox] {
+      width: 16px; height: 16px;
+      accent-color: #818cf8;
+      cursor: pointer;
+    }
+
+    .todo-item .text {
+      flex: 1;
+      font-size: 0.9rem;
+    }
+
+    .todo-item.done .text {
+      text-decoration: line-through;
+      color: #475569;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .badge.high { background: #3f1f1f; color: #f87171; }
+    .badge.mid  { background: #2d2a1a; color: #fbbf24; }
+    .badge.low  { background: #1a2d20; color: #4ade80; }
+
+    .btn-del {
+      background: none;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .btn-del:hover { color: #f87171; }
+
+    /* 매출 요약 */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      flex: 1;
+      background: #0f1117;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat .val {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .stat .lbl {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    /* 일정 */
+    .schedule-list { list-style: none; }
+
+    .schedule-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #2d3348;
+    }
+
+    .schedule-item:last-child { border-bottom: none; }
+
+    .day-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #818cf8;
+      background: #1a1d2e;
+      border-radius: 6px;
+      padding: 3px 8px;
+      min-width: 44px;
+      text-align: center;
+    }
+
+    .schedule-item .desc { font-size: 0.88rem; line-height: 1.5; }
+
+    /* 차트 카드 */
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* 프로젝트 진행률 */
+    .proj-list { list-style: none; }
+
+    .proj-item { margin-bottom: 14px; }
+
+    .proj-item:last-child { margin-bottom: 0; }
+
+    .proj-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      margin-bottom: 6px;
+    }
+
+    .proj-pct { color: #818cf8; font-weight: 600; }
+
+    .prog-bar {
+      height: 6px;
+      background: #2d3348;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .prog-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #818cf8, #38bdf8);
+      transition: width 0.6s ease;
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 16px; }
+      .stat-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>김비서 대시보드</h1>
+  <span class="date" id="today-date"></span>
+</header>
+
+<div class="grid">
+
+  <!-- 할 일 -->
+  <div class="card" style="grid-column: span 1;">
+    <h2>오늘 할 일</h2>
+    <div class="todo-input-row">
+      <input id="todo-input" type="text" placeholder="새 할 일 입력...">
+      <select id="todo-priority">
+        <option value="high">긴급</option>
+        <option value="mid" selected>보통</option>
+        <option value="low">낮음</option>
+      </select>
+      <button class="btn-add" onclick="addTodo()">추가</button>
+    </div>
+    <ul class="todo-list" id="todo-list"></ul>
+  </div>
+
+  <!-- 프로젝트 진행률 -->
+  <div class="card">
+    <h2>프로젝트 진행률</h2>
+    <ul class="proj-list" id="proj-list"></ul>
+  </div>
+
+  <!-- 매출 요약 -->
+  <div class="card">
+    <h2>매출 현황 요약</h2>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="val">7,680만</div>
+        <div class="lbl">1월 총매출</div>
+      </div>
+      <div class="stat">
+        <div class="val">8,310만</div>
+        <div class="lbl">2월 총매출</div>
+      </div>
+      <div class="stat">
+        <div class="val" style="color:#4ade80;">+8.2%</div>
+        <div class="lbl">전월 대비</div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="salesChart"></canvas>
+    </div>
+  </div>
+
+  <!-- 이번 주 일정 -->
+  <div class="card">
+    <h2>이번 주 일정</h2>
+    <ul class="schedule-list">
+      <li class="schedule-item">
+        <span class="day-label">월</span>
+        <span class="desc">마케팅팀 주간회의 오전 10시<br><small style="color:#64748b;">3월 프로모션 기획안 검토</small></span>
+      </li>
+      <li class="schedule-item">
+        <span class="day-label">수</span>
+        <span class="desc">3월 프로모션 기획안 초안 마감 (김대리)<br><small style="color:#64748b;">수요일까지 제출</small></span>
+      </li>
+      <li class="schedule-item">
+        <span class="day-label">금</span>
+        <span class="desc">인플루언서 미팅 일정 확정 (이과장)<br><small style="color:#64748b;">푸드스타일리스트 김OO 미팅</small></span>
+      </li>
+      <li class="schedule-item">
+        <span class="day-label">금</span>
+        <span class="desc">4월 신제품 티저 일정 확정<br><small style="color:#64748b;">3월 넷째 주 티저 시작</small></span>
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  // 오늘 날짜
+  const now = new Date();
+  document.getElementById('today-date').textContent =
+    now.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+
+  // 할 일 데이터 (회의록 기반)
+  let todos = JSON.parse(localStorage.getItem('kim-todos') || 'null') || [
+    { id: 1, text: '영상 광고 3개 추가 제작 (박사원)', priority: 'high', done: false },
+    { id: 2, text: '인플루언서 미팅 일정 잡기 (이과장)', priority: 'high', done: false },
+    { id: 3, text: '3월 프로모션 기획안 초안 작성 (김대리)', priority: 'mid', done: false },
+    { id: 4, text: '경쟁사 C사 신규 캠페인 분석 (박사원)', priority: 'mid', done: false },
+    { id: 5, text: '예산 조정 요청서 작성 (영상 제작비 +200만)', priority: 'low', done: false },
+  ];
+
+  function saveTodos() { localStorage.setItem('kim-todos', JSON.stringify(todos)); }
+
+  function renderTodos() {
+    const list = document.getElementById('todo-list');
+    const sorted = [...todos].sort((a, b) => {
+      const p = { high: 0, mid: 1, low: 2 };
+      return p[a.priority] - p[b.priority];
+    });
+    list.innerHTML = sorted.map(t => `
+      <li class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${t.id})">
+        <span class="text">${t.text}</span>
+        <span class="badge ${t.priority}">${t.priority === 'high' ? '긴급' : t.priority === 'mid' ? '보통' : '낮음'}</span>
+        <button class="btn-del" onclick="deleteTodo(${t.id})">✕</button>
+      </li>
+    `).join('');
+  }
+
+  function addTodo() {
+    const input = document.getElementById('todo-input');
+    const priority = document.getElementById('todo-priority').value;
+    const text = input.value.trim();
+    if (!text) return;
+    todos.push({ id: Date.now(), text, priority, done: false });
+    input.value = '';
+    saveTodos(); renderTodos();
+  }
+
+  function toggleTodo(id) {
+    const t = todos.find(t => t.id === id);
+    if (t) t.done = !t.done;
+    saveTodos(); renderTodos();
+  }
+
+  function deleteTodo(id) {
+    todos = todos.filter(t => t.id !== id);
+    saveTodos(); renderTodos();
+  }
+
+  document.getElementById('todo-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTodo();
+  });
+
+  renderTodos();
+
+  // 프로젝트 진행률
+  const projects = [
+    { name: 'SNS 광고 캠페인 (B안)', pct: 65 },
+    { name: '인플루언서 협업', pct: 30 },
+    { name: '3월 프로모션 기획', pct: 10 },
+    { name: '4월 신제품 티저', pct: 5 },
+    { name: '블로그 콘텐츠 발행', pct: 85 },
+  ];
+
+  document.getElementById('proj-list').innerHTML = projects.map(p => `
+    <li class="proj-item">
+      <div class="proj-header">
+        <span>${p.name}</span>
+        <span class="proj-pct">${p.pct}%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${p.pct}%"></div></div>
+    </li>
+  `).join('');
+
+  // 매출 차트
+  const salesCtx = document.getElementById('salesChart').getContext('2d');
+  new Chart(salesCtx, {
+    type: 'bar',
+    data: {
+      labels: ['무선 이어폰', '블루투스 스피커', '보조배터리', '무선 충전기', '텀블러', '에코백'],
+      datasets: [
+        {
+          label: '1월',
+          data: [17444, 6600, 6160, 4455, 7475, 4365],
+          backgroundColor: 'rgba(129,140,248,0.7)',
+          borderRadius: 6,
+        },
+        {
+          label: '2월',
+          data: [11392, 3000, 2870, 1395, 4050, 1800],
+          backgroundColor: 'rgba(56,189,248,0.7)',
+          borderRadius: 6,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#2d3348' } },
+        y: {
+          ticks: {
+            color: '#64748b', font: { size: 10 },
+            callback: v => (v / 10000).toFixed(0) + '만'
+          },
+          grid: { color: '#2d3348' }
+        }
+      }
+    }
+  });
+</script>
+</body>
+</html>
