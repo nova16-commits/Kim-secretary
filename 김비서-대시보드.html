@@ -237,6 +237,139 @@
       transition: width 0.6s ease;
     }
 
+    /* 캘린더 */
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .cal-header span {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .cal-nav {
+      background: none;
+      border: 1px solid #2d3348;
+      border-radius: 6px;
+      color: #94a3b8;
+      width: 28px; height: 28px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .cal-nav:hover { background: #2d3348; color: #e2e8f0; }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .cal-day-name {
+      text-align: center;
+      font-size: 0.72rem;
+      color: #64748b;
+      padding-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .cal-day-name:first-child { color: #f87171; }
+    .cal-day-name:last-child  { color: #60a5fa; }
+
+    .cal-cell {
+      position: relative;
+      text-align: center;
+      padding: 6px 2px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      min-height: 36px;
+      color: #94a3b8;
+      transition: background 0.15s;
+    }
+
+    .cal-cell:hover { background: #2d3348; }
+    .cal-cell.other-month { color: #334155; }
+    .cal-cell.today {
+      background: #818cf8;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .cal-cell.has-event::after {
+      content: '';
+      display: block;
+      width: 4px; height: 4px;
+      background: #38bdf8;
+      border-radius: 50%;
+      margin: 2px auto 0;
+    }
+
+    .cal-cell.today.has-event::after { background: #fff; }
+
+    .cal-events {
+      margin-top: 16px;
+      border-top: 1px solid #2d3348;
+      padding-top: 12px;
+    }
+
+    .cal-events-title {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .cal-event-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 0.85rem;
+      border-bottom: 1px solid #1e2130;
+    }
+
+    .cal-event-dot {
+      width: 6px; height: 6px;
+      background: #818cf8;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .cal-event-del {
+      background: none;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+
+    .cal-event-del:hover { color: #f87171; }
+
+    .cal-add-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .cal-add-row input {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .cal-add-row input:focus { border-color: #818cf8; }
+
     @media (max-width: 600px) {
       body { padding: 16px; }
       .stat-row { flex-direction: column; }
@@ -292,6 +425,25 @@
     </div>
     <div class="chart-wrap">
       <canvas id="salesChart"></canvas>
+    </div>
+  </div>
+
+  <!-- 캘린더 -->
+  <div class="card" style="grid-column: span 2;">
+    <h2>캘린더</h2>
+    <div class="cal-header">
+      <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+      <span id="cal-title"></span>
+      <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-events">
+      <div class="cal-events-title" id="cal-events-title">날짜를 클릭하면 일정을 추가할 수 있습니다</div>
+      <div id="cal-events-list"></div>
+      <div class="cal-add-row" id="cal-add-row" style="display:none;">
+        <input id="cal-event-input" type="text" placeholder="일정 입력 후 Enter...">
+        <button class="btn-add" onclick="addCalEvent()">추가</button>
+      </div>
     </div>
   </div>
 
@@ -379,6 +531,110 @@
   });
 
   renderTodos();
+
+  // 캘린더
+  let calYear = now.getFullYear();
+  let calMonth = now.getMonth();
+  let selectedDate = null;
+
+  let calEvents = JSON.parse(localStorage.getItem('kim-cal-events') || 'null') || {
+    '2026-03-16': ['마케팅팀 주간회의 오전 10시'],
+    '2026-03-25': ['3월 프로모션 기획안 초안 마감'],
+    '2026-03-27': ['인플루언서 미팅 일정 확정'],
+  };
+
+  function saveCalEvents() { localStorage.setItem('kim-cal-events', JSON.stringify(calEvents)); }
+
+  function dateKey(y, m, d) {
+    return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
+  function renderCalendar() {
+    const days = ['일','월','화','수','목','금','토'];
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevLastDate = new Date(calYear, calMonth, 0).getDate();
+
+    document.getElementById('cal-title').textContent =
+      `${calYear}년 ${calMonth + 1}월`;
+
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = days.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+
+    let cells = '';
+    for (let i = 0; i < firstDay; i++) {
+      const d = prevLastDate - firstDay + 1 + i;
+      const key = dateKey(calMonth === 0 ? calYear-1 : calYear, calMonth === 0 ? 11 : calMonth-1, d);
+      cells += `<div class="cal-cell other-month ${calEvents[key]?.length ? 'has-event' : ''}">${d}</div>`;
+    }
+    for (let d = 1; d <= lastDate; d++) {
+      const key = dateKey(calYear, calMonth, d);
+      const isToday = calYear === now.getFullYear() && calMonth === now.getMonth() && d === now.getDate();
+      const isSelected = key === selectedDate;
+      const hasEv = calEvents[key]?.length;
+      cells += `<div class="cal-cell ${isToday ? 'today' : ''} ${hasEv ? 'has-event' : ''} ${isSelected && !isToday ? 'sel' : ''}"
+        onclick="selectDate('${key}', ${d})">${d}</div>`;
+    }
+    const remaining = 42 - firstDay - lastDate;
+    for (let d = 1; d <= remaining; d++) {
+      const key = dateKey(calMonth === 11 ? calYear+1 : calYear, calMonth === 11 ? 0 : calMonth+1, d);
+      cells += `<div class="cal-cell other-month ${calEvents[key]?.length ? 'has-event' : ''}">${d}</div>`;
+    }
+    grid.innerHTML += cells;
+  }
+
+  function selectDate(key, d) {
+    selectedDate = key;
+    const [y, m] = key.split('-');
+    document.getElementById('cal-events-title').textContent =
+      `${y}년 ${parseInt(m)}월 ${d}일 일정`;
+    document.getElementById('cal-add-row').style.display = 'flex';
+    renderCalEvents();
+    renderCalendar();
+  }
+
+  function renderCalEvents() {
+    const list = document.getElementById('cal-events-list');
+    const evs = calEvents[selectedDate] || [];
+    list.innerHTML = evs.length
+      ? evs.map((e, i) => `
+          <div class="cal-event-item">
+            <span class="cal-event-dot"></span>
+            <span>${e}</span>
+            <button class="cal-event-del" onclick="deleteCalEvent(${i})">✕</button>
+          </div>`).join('')
+      : `<div style="color:#475569;font-size:0.85rem;padding:6px 0;">일정 없음</div>`;
+  }
+
+  function addCalEvent() {
+    if (!selectedDate) return;
+    const input = document.getElementById('cal-event-input');
+    const text = input.value.trim();
+    if (!text) return;
+    if (!calEvents[selectedDate]) calEvents[selectedDate] = [];
+    calEvents[selectedDate].push(text);
+    input.value = '';
+    saveCalEvents(); renderCalEvents(); renderCalendar();
+  }
+
+  function deleteCalEvent(i) {
+    calEvents[selectedDate].splice(i, 1);
+    if (!calEvents[selectedDate].length) delete calEvents[selectedDate];
+    saveCalEvents(); renderCalEvents(); renderCalendar();
+  }
+
+  function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0)  { calMonth = 11; calYear--; }
+    renderCalendar();
+  }
+
+  document.getElementById('cal-event-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addCalEvent();
+  });
+
+  renderCalendar();
 
   // 프로젝트 진행률
   const projects = [
