@@ -370,6 +370,103 @@
 
     .cal-add-row input:focus { border-color: #818cf8; }
 
+    /* AI 비서 */
+    .ai-chat {
+      display: flex;
+      flex-direction: column;
+      height: 380px;
+    }
+
+    .ai-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-right: 4px;
+    }
+
+    .ai-messages::-webkit-scrollbar { width: 4px; }
+    .ai-messages::-webkit-scrollbar-track { background: transparent; }
+    .ai-messages::-webkit-scrollbar-thumb { background: #2d3348; border-radius: 4px; }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: #818cf8;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.ai {
+      align-self: flex-start;
+      background: #0f1117;
+      color: #cbd5e1;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg.loading { color: #64748b; font-style: italic; }
+
+    .ai-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .ai-input-row input {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .ai-input-row input:focus { border-color: #818cf8; }
+
+    .btn-send {
+      background: #818cf8;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-send:hover { background: #6366f1; }
+    .btn-send:disabled { background: #2d3348; color: #475569; cursor: not-allowed; }
+
+    .ai-quick-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .ai-quick-btn {
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 999px;
+      padding: 4px 12px;
+      color: #94a3b8;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .ai-quick-btn:hover { border-color: #818cf8; color: #818cf8; }
+
     @media (max-width: 600px) {
       body { padding: 16px; }
       .stat-row { flex-direction: column; }
@@ -443,6 +540,26 @@
       <div class="cal-add-row" id="cal-add-row" style="display:none;">
         <input id="cal-event-input" type="text" placeholder="일정 입력 후 Enter...">
         <button class="btn-add" onclick="addCalEvent()">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 비서 -->
+  <div class="card" style="grid-column: span 2;">
+    <h2>AI 김비서 (Gemini)</h2>
+    <div class="ai-chat">
+      <div class="ai-messages" id="ai-messages">
+        <div class="msg ai">안녕하세요! 저는 AI 김비서입니다. 업무 관련 질문이나 오늘 할 일 정리를 도와드릴게요.</div>
+      </div>
+      <div class="ai-quick-btns">
+        <button class="ai-quick-btn" onclick="quickAsk('오늘 할 일을 우선순위별로 정리해줘')">오늘 할 일 정리</button>
+        <button class="ai-quick-btn" onclick="quickAsk('이번 주 마케팅팀 주요 업무를 요약해줘')">이번 주 요약</button>
+        <button class="ai-quick-btn" onclick="quickAsk('매출이 전월 대비 8.2% 증가했어. 짧은 분석 코멘트 써줘')">매출 분석</button>
+        <button class="ai-quick-btn" onclick="quickAsk('오늘 하루 힘내라는 응원 메시지 한 줄만 써줘')">응원 메시지</button>
+      </div>
+      <div class="ai-input-row">
+        <input id="ai-input" type="text" placeholder="김비서에게 물어보세요...">
+        <button class="btn-send" id="ai-send-btn" onclick="sendAiMessage()">전송</button>
       </div>
     </div>
   </div>
@@ -635,6 +752,49 @@
   });
 
   renderCalendar();
+
+  // AI 김비서
+  async function sendAiMessage(text) {
+    const input = document.getElementById('ai-input');
+    const prompt = text || input.value.trim();
+    if (!prompt) return;
+
+    const messages = document.getElementById('ai-messages');
+    const sendBtn = document.getElementById('ai-send-btn');
+
+    messages.innerHTML += `<div class="msg user">${prompt}</div>`;
+    messages.innerHTML += `<div class="msg ai loading" id="ai-loading">생각 중...</div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    input.value = '';
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      document.getElementById('ai-loading').remove();
+      messages.innerHTML += `<div class="msg ai">${data.text || data.error}</div>`;
+    } catch (e) {
+      document.getElementById('ai-loading').remove();
+      messages.innerHTML += `<div class="msg ai">오류가 발생했습니다. 다시 시도해주세요.</div>`;
+    }
+
+    sendBtn.disabled = false;
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function quickAsk(text) {
+    document.getElementById('ai-input').value = text;
+    sendAiMessage(text);
+  }
+
+  document.getElementById('ai-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendAiMessage();
+  });
 
   // 프로젝트 진행률
   const projects = [
